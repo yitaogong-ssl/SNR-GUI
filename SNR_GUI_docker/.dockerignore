@@ -1,0 +1,12 @@
+.git
+.github
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+.DS_Store
+.venv/
+venv/
+PLP001_50_evos.ome.tiff_-_PLP001_50/
+exported_channels/

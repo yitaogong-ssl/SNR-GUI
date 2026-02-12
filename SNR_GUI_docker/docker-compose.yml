@@ -1,0 +1,8 @@
+services:
+  snr-gui:
+    build: .
+    container_name: snr-gui
+    command: ["streamlit", "run", "snr_gui.py", "--server.address=0.0.0.0", "--server.port=8501"]
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
