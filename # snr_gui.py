@@ -28,12 +28,10 @@ def is_excluded(col: str) -> bool:
             return True
     return False
 
-def candidate_marker_columns(df: pd.DataFrame, strict_names: bool):
+def candidate_marker_columns(df: pd.DataFrame):
     cols = []
     for c in df.columns:
         if is_excluded(c):
-            continue
-        if strict_names and re.match(r"^[A-Za-z0-9]+$", c) is None:
             continue
         if pd.api.types.is_numeric_dtype(df[c]):
             cols.append(c)
@@ -47,36 +45,70 @@ def compute_snr_for_vector(
     bottom_pct: float,
     eps: float,
     cap: float
-) -> tuple[float, float]:
+) -> dict:
     x = np.asarray(x, dtype=float)
     x = x[np.isfinite(x)]
     if x.size == 0:
-        return np.nan, np.nan
+        return {
+            "snr": np.nan,
+            "top_mean": np.nan,
+            "bottom_mean": np.nan,
+            "top_n": 0,
+            "bottom_n": 0,
+            "overlap_adjusted": False,
+            "denom_unstable": True,
+        }
 
     x_sorted = np.sort(x)
+    n = x_sorted.size
 
     # bottom
-    b_n = max(1, int(np.floor(x_sorted.size * (bottom_pct / 100.0))))
+    b_n = max(1, int(np.floor(n * (bottom_pct / 100.0))))
+    # Keep at least one cell for the signal pool when n >= 2.
+    if n >= 2:
+        b_n = min(b_n, n - 1)
     bottom = x_sorted[:b_n]
     bottom_mean = float(np.mean(bottom))
 
     # top
     if top_mode == "Top N cells":
-        t_n = min(max(1, top_n), x_sorted.size)
-        top = x_sorted[-t_n:]
+        t_n = min(max(1, top_n), n)
     else:
-        t_n = max(1, int(np.floor(x_sorted.size * (top_pct / 100.0))))
-        t_n = min(t_n, x_sorted.size)
-        top = x_sorted[-t_n:]
+        t_n = max(1, int(np.floor(n * (top_pct / 100.0))))
+        t_n = min(t_n, n)
+
+    overlap_adjusted = False
+    max_top_without_overlap = max(1, n - b_n)
+    if t_n > max_top_without_overlap:
+        t_n = max_top_without_overlap
+        overlap_adjusted = True
+
+    top = x_sorted[-t_n:]
     top_mean = float(np.mean(top))
 
     denom = bottom_mean + eps
     snr = top_mean / denom
     if cap is not None and np.isfinite(cap):
         snr = min(snr, cap)
-    return snr, top_mean
+    denom_unstable = (not np.isfinite(bottom_mean)) or (bottom_mean <= (10.0 * eps))
+    return {
+        "snr": snr,
+        "top_mean": top_mean,
+        "bottom_mean": bottom_mean,
+        "top_n": t_n,
+        "bottom_n": b_n,
+        "overlap_adjusted": overlap_adjusted,
+        "denom_unstable": denom_unstable,
+    }
 
-def make_barplot(summary_df: pd.DataFrame, threshold: float, log_scale: bool, log_floor: float = 1e-6):
+def make_barplot(
+    summary_df: pd.DataFrame,
+    threshold: float,
+    log_scale: bool,
+    log_floor: float = 1e-6,
+    pass_threshold: float = 3.0,
+    good_threshold: float = 10.0,
+):
     # summary_df columns: Protein, median_snr
     df = summary_df.sort_values("median_snr", ascending=True)
     plot_vals = df["median_snr"].copy()
@@ -92,6 +124,11 @@ def make_barplot(summary_df: pd.DataFrame, threshold: float, log_scale: bool, lo
         thresh_plot = threshold
         plt.xlabel("Median SNR across ROIs")
     plt.axvline(thresh_plot, linestyle="--")
+    pass_plot = pass_threshold if (not log_scale or pass_threshold > 0) else log_floor
+    good_plot = good_threshold if (not log_scale or good_threshold > 0) else log_floor
+    plt.axvline(pass_plot, linestyle="--", color="tab:green", label="Pass (SNR >= 3)")
+    plt.axvline(good_plot, linestyle="-.", color="tab:blue", label="Good (SNR >= 10)")
+    plt.legend(loc="best")
     plt.ylabel("Marker")
     plt.tight_layout()
     return fig
@@ -141,19 +178,28 @@ c8, c9, c10 = st.columns(3)
 with c8:
     min_cells = st.number_input("Min cells per ROI", min_value=1, max_value=1_000_000, value=200, step=10)
 with c9:
-    tiny_threshold = st.number_input("Near-zero marker threshold", min_value=0.0, max_value=1e9, value=1e-3, format="%.6f")
+    tiny_threshold = st.number_input(
+        "Near-zero relative threshold (top/median)",
+        min_value=0.0,
+        max_value=1.0,
+        value=0.05,
+        step=0.01,
+        format="%.4f"
+    )
 with c10:
     log_scale = st.checkbox("Log-scale barplot", value=False)
 
 if uploaded:
     # read all valid CSVs once
     dfs = {}
-    for f in uploaded:
+    for idx, f in enumerate(uploaded, start=1):
         df_try = safe_read_csv(f)
         if df_try is None or df_try.empty:
             st.warning(f"Skipped empty/invalid CSV: {f.name}")
             continue
-        dfs[f.name] = df_try
+        # Keep each upload as a separate ROI even when filenames are identical.
+        roi_name = f"{idx:02d}_{f.name}"
+        dfs[roi_name] = df_try
 
     if not dfs:
         st.error("All uploaded CSVs are empty or invalid.")
@@ -166,11 +212,10 @@ if uploaded:
         index=0,
         horizontal=True
     )
-    strict_marker_names = st.checkbox("Only simple marker names (A-Z/0-9)", value=True)
 
     marker_sets = []
     for _, df in dfs.items():
-        marker_sets.append(set(candidate_marker_columns(df, strict_names=strict_marker_names)))
+        marker_sets.append(set(candidate_marker_columns(df)))
 
     if marker_mode.startswith("Intersection"):
         markers_auto = sorted(set.intersection(*marker_sets)) if marker_sets else []
@@ -196,6 +241,7 @@ if uploaded:
         records = []
         roi_cell_counts = {}
         near_zero_markers = set()
+        marker_missing_rois = {m: [] for m in markers}
 
         for roi, df in dfs.items():
             if len(df) < int(min_cells):
@@ -205,8 +251,9 @@ if uploaded:
 
             for m in markers:
                 if m not in df.columns:
+                    marker_missing_rois[m].append(roi)
                     continue
-                snr, top_mean = compute_snr_for_vector(
+                result = compute_snr_for_vector(
                     df[m].values,
                     top_mode=top_mode,
                     top_n=int(top_n),
@@ -215,14 +262,30 @@ if uploaded:
                     eps=float(eps),
                     cap=float(cap)
                 )
-                if np.isfinite(top_mean) and top_mean < float(tiny_threshold):
+                marker_vals = pd.to_numeric(df[m], errors="coerce").to_numpy(dtype=float)
+                marker_vals = marker_vals[np.isfinite(marker_vals)]
+                marker_median = float(np.median(marker_vals)) if marker_vals.size > 0 else np.nan
+                top_vs_median = (
+                    result["top_mean"] / (marker_median + float(eps))
+                    if np.isfinite(result["top_mean"]) and np.isfinite(marker_median)
+                    else np.nan
+                )
+                if np.isfinite(top_vs_median) and top_vs_median < float(tiny_threshold):
                     near_zero_markers.add(m)
                 records.append({
                     "ROI": roi,
                     "Protein": m,
-                    "SNR": snr,
-                    "Pass": (snr >= float(threshold)) if np.isfinite(snr) else False,
-                    "N_cells": len(df)
+                    "SNR": result["snr"],
+                    "Pass": (result["snr"] >= 3.0) if np.isfinite(result["snr"]) else False,
+                    "Good": (result["snr"] >= 10.0) if np.isfinite(result["snr"]) else False,
+                    "N_cells": len(df),
+                    "Top_mean": result["top_mean"],
+                    "Bottom_mean": result["bottom_mean"],
+                    "Top_n": result["top_n"],
+                    "Bottom_n": result["bottom_n"],
+                    "Top_vs_median": top_vs_median,
+                    "Denom_unstable": result["denom_unstable"],
+                    "Overlap_adjusted": result["overlap_adjusted"],
                 })
 
         snr_df = pd.DataFrame(records)
@@ -232,20 +295,43 @@ if uploaded:
 
         if near_zero_markers:
             st.warning(
-                "Markers near-zero in at least one ROI (threshold = "
+                "Markers near-zero in at least one ROI by top/median ratio (threshold = "
                 f"{float(tiny_threshold)}): {', '.join(sorted(near_zero_markers))}"
             )
+        if not snr_df.empty and bool(snr_df["Denom_unstable"].any()):
+            unstable_markers = sorted(snr_df.loc[snr_df["Denom_unstable"], "Protein"].unique().tolist())
+            st.warning(
+                "Unstable denominator detected (bottom_mean <= 10*eps) for markers: "
+                + ", ".join(unstable_markers)
+            )
+        missing_messages = []
+        for m, rois in marker_missing_rois.items():
+            if rois:
+                missing_messages.append(f"{m}: missing in {len(rois)} ROI(s)")
+        if missing_messages:
+            st.warning("Union mode missing markers by ROI: " + " | ".join(missing_messages))
 
         st.subheader("SNR per ROI")
         st.dataframe(snr_df, use_container_width=True)
 
         # summary across ROIs
+        n_roi_processed = len(roi_cell_counts)
         summary = (
             snr_df.groupby("Protein")["SNR"]
             .agg(median_snr="median", mean_snr="mean", min_snr="min", max_snr="max")
             .reset_index()
         )
-        summary["Pass_median"] = summary["median_snr"] >= float(threshold)
+        n_used = (
+            snr_df.groupby("Protein")["ROI"]
+            .nunique()
+            .rename("n_roi_used")
+            .reset_index()
+        )
+        summary = summary.merge(n_used, on="Protein", how="left")
+        summary["n_roi_total"] = n_roi_processed
+        summary["roi_coverage"] = summary["n_roi_used"] / summary["n_roi_total"].replace(0, np.nan)
+        summary["Pass_median"] = summary["median_snr"] >= 3.0
+        summary["Good_median"] = summary["median_snr"] >= 10.0
 
         st.subheader("Summary across ROIs")
         st.dataframe(summary, use_container_width=True)
@@ -268,10 +354,10 @@ if uploaded:
             f"Pseudocount eps: {eps}, Cap: {cap}\n"
             f"Min cells per ROI: {int(min_cells)}\n"
             f"Marker set mode: {marker_mode}\n"
-            f"Strict marker names: {strict_marker_names}\n"
-            f"Near-zero threshold: {tiny_threshold}\n"
+            f"Near-zero threshold (top/median): {tiny_threshold}\n"
             f"Log-scale barplot: {log_scale}\n"
-            f"ROIs processed: {len(dfs)}\n"
+            f"ROIs uploaded: {len(dfs)}\n"
+            f"ROIs processed (after min-cells filter): {n_roi_processed}\n"
             f"Markers: {', '.join(markers)}\n"
         ).encode("utf-8")
 

@@ -1,0 +1,2 @@
+>>> Start time geojson =  10:02:15_11/02/2026
+../pipex/generate_geojson.py -data=PLP001_50_evos.ome.tiff_-_PLP001_50/segmentation_regions/Region3

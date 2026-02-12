@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="SNR GUI for multi-ROI marker quality control from per-cell CSV files." />
+  <title>SNR GUI | Multi-ROI SNR Calculator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <nav class="nav">
+      <div class="brand">SNR GUI</div>
+      <a class="nav-link" href="#quickstart">Quick Start</a>
+      <a class="nav-link" href="#features">Features</a>
+      <a class="nav-link" href="#thresholds">Thresholds</a>
+    </nav>
+    <div class="hero-content">
+      <p class="eyebrow">Bioimage Marker QC</p>
+      <h1>Compute SNR across multiple ROI CSV files</h1>
+      <p class="lead">
+        Streamlit interface for marker-level SNR evaluation with per-ROI and cross-ROI summaries.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#quickstart">Run Locally</a>
+        <a class="btn btn-ghost" href="#deploy">Deploy on GitHub Pages</a>
+      </div>
+    </div>
+    <div class="hero-glow"></div>
+  </header>
+
+  <main>
+    <section id="features" class="section">
+      <h2>What This Tool Does</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Multi-ROI Input</h3>
+          <p>Upload one CSV per ROI and aggregate SNR by marker.</p>
+        </article>
+        <article class="card">
+          <h3>Robust SNR</h3>
+          <p>Top-signal over bottom-signal strategy with caps, epsilon, and denominator stability checks.</p>
+        </article>
+        <article class="card">
+          <h3>Clear Decision Labels</h3>
+          <p>Per ROI and summary labels: <code>Pass</code> for SNR >= 3, <code>Good</code> for SNR >= 10.</p>
+        </article>
+        <article class="card">
+          <h3>Shareable Output</h3>
+          <p>Export CSVs plus barplot in one ZIP for downstream reporting and archiving.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="thresholds" class="section">
+      <h2>SNR Interpretation</h2>
+      <div class="thresholds">
+        <div class="pill pass">Pass: SNR >= 3</div>
+        <div class="pill good">Good: SNR >= 10</div>
+      </div>
+      <p class="muted">
+        The barplot includes guide lines for both thresholds, and tables include matching boolean columns.
+      </p>
+    </section>
+
+    <section id="quickstart" class="section">
+      <h2>Quick Start</h2>
+      <ol class="steps">
+        <li>Clone this repository.</li>
+        <li>Install dependencies.</li>
+        <li>Run Streamlit and upload ROI CSV files.</li>
+      </ol>
+      <div class="code-wrap">
+        <pre><code id="run-cmd">pip install streamlit pandas numpy matplotlib
+streamlit run "# snr_gui.py"</code></pre>
+        <button class="copy-btn" data-copy-target="run-cmd">Copy Command</button>
+      </div>
+      <p class="muted">
+        Optional cleanup: rename <code># snr_gui.py</code> to <code>snr_gui.py</code> for simpler CLI usage.
+      </p>
+    </section>
+
+    <section id="deploy" class="section">
+      <h2>GitHub Pages Deployment</h2>
+      <p>
+        This repo includes a workflow at <code>.github/workflows/deploy-pages.yml</code> that publishes
+        the <code>docs/</code> folder automatically after push to <code>main</code>.
+      </p>
+      <ol class="steps">
+        <li>Push this repository to GitHub.</li>
+        <li>In repo settings, enable Pages source as <code>GitHub Actions</code>.</li>
+        <li>Visit your site URL: <code>https://&lt;user&gt;.github.io/&lt;repo&gt;/</code>.</li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Built for SNR marker quality control workflows.</p>
+  </footer>
+
+  <script src="./app.js"></script>
+</body>
+</html>
