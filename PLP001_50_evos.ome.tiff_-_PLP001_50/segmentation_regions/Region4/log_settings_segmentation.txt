@@ -1,2 +1,0 @@
->>> Start time segmentation =  10:02:02_11/02/2026
-../pipex/segmentation.py -data=PLP001_50_evos.ome.tiff_-_PLP001_50/segmentation_regions/Region4 -nuclei_marker=DAPI -nuclei_expansion=12 -measure_markers=DAPI,CD103,GranzymeB,CD4,CD8,CD20,CD3,Unstained

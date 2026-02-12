@@ -1,2 +1,0 @@
->>> Start time geojson =  14:36:35_09/02/2026
-../pipex/generate_geojson.py -data=exported_channels/segmentation_regions/Region1

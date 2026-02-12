@@ -1,2 +1,0 @@
->>> Start time segmentation =  14:36:04_09/02/2026
-../pipex/segmentation.py -data=exported_channels/segmentation_regions/Region1 -nuclei_marker=DAPI -nuclei_expansion=12 -membrane_marker=Opal_780 -membrane_diameter=25 -membrane_compactness=0.9 -membrane_keep=no -measure_markers=DAPI,Opal_480,Opal_520,Opal_570,Opal_620,Opal_690,Opal_780,Unstained
