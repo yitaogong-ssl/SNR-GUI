@@ -187,7 +187,7 @@ with c9:
         format="%.4f"
     )
 with c10:
-    log_scale = st.checkbox("Log-scale barplot", value=False)
+    log_scale = st.checkbox("Log-scale X axis", value=False)
 
 if uploaded:
     # read all valid CSVs once
