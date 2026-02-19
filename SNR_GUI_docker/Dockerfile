@@ -10,6 +10,8 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --upgrade pip && pip install -r /app/requirements.txt
 
 COPY snr_gui.py /app/snr_gui.py
+RUN mkdir -p /app/.streamlit
+COPY .streamlit/config.toml /app/.streamlit/config.toml
 
 EXPOSE 8501
 
