@@ -1,18 +1,31 @@
 # snr_gui.py
 import io
+import os
 import re
+import runpy
 import zipfile
+from pathlib import Path
 import numpy as np
 import pandas as pd
 from pandas.errors import EmptyDataError
 import matplotlib.pyplot as plt
 import streamlit as st
 
-st.set_page_config(page_title="SNR Calculator (CSV)", layout="wide")
+st.set_page_config(page_title="SNR Calculator", layout="wide")
 
-st.title("SNR Calculator (Multiple CSV ROIs)")
+st.title("SNR Calculator")
+mode = st.radio("Input mode", ["CSV", "OME-TIFF"], horizontal=True, index=0)
+
+if mode == "OME-TIFF":
+    os.environ["SNR_EMBED_MODE"] = "1"
+    try:
+        runpy.run_path(str(Path(__file__).with_name("snr_gui_ome.py")), run_name="__main__")
+    finally:
+        os.environ.pop("SNR_EMBED_MODE", None)
+    st.stop()
+
 st.caption(
-    "Compute SNR per marker from per-cell intensity CSVs (one CSV per ROI). "
+    "CSV mode: compute SNR per marker from per-cell intensity CSVs (one CSV per ROI). "
     "Default metric: mean(top 20 cells) / mean(bottom 10%)."
 )
 

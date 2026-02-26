@@ -1,4 +1,12 @@
 streamlit==1.50.0
 pandas==2.3.3
-numpy==2.0.2
+numpy==1.26.4
 matplotlib==3.9.4
+tifffile==2025.5.10
+scikit-image==0.24.0
+scipy==1.14.1
+Pillow==10.4.0
+opencv-python-headless==4.10.0.84
+stardist==0.9.1
+csbdeep==0.8.0
+tensorflow-cpu==2.16.1

@@ -1,8 +1,18 @@
 services:
   snr-gui:
     build: .
-    container_name: snr-gui
+    platform: linux/amd64
+    container_name: snr-gui-v2
     command: ["streamlit", "run", "snr_gui.py", "--server.address=0.0.0.0", "--server.port=8501"]
     ports:
-      - "8501:8501"
+      - "8503:8501"
+    restart: unless-stopped
+
+  snr-gui-ome:
+    build: .
+    platform: linux/amd64
+    container_name: snr-gui-ome-v2
+    command: ["streamlit", "run", "snr_gui_ome.py", "--server.address=0.0.0.0", "--server.port=8502"]
+    ports:
+      - "8502:8502"
     restart: unless-stopped
