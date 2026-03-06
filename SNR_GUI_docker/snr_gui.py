@@ -50,6 +50,9 @@ def candidate_marker_columns(df: pd.DataFrame):
             cols.append(c)
     return cols
 
+def all_numeric_columns(df: pd.DataFrame):
+    return [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+
 def compute_snr_for_vector(
     x: np.ndarray,
     top_mode: str,
@@ -225,25 +228,39 @@ if uploaded:
         index=0,
         horizontal=True
     )
+    show_all_cols = st.checkbox(
+        "Show all numeric columns (override auto-exclusion filter)",
+        value=False,
+        help="When checked, all numeric columns are available to select, including those normally excluded (e.g. *_otsu*, *_ratio*, cell_id, x, y, size …)."
+    )
 
     marker_sets = []
+    all_col_sets = []
     for _, df in dfs.items():
         marker_sets.append(set(candidate_marker_columns(df)))
+        all_col_sets.append(set(all_numeric_columns(df)))
 
     if marker_mode.startswith("Intersection"):
         markers_auto = sorted(set.intersection(*marker_sets)) if marker_sets else []
+        all_cols = sorted(set.intersection(*all_col_sets)) if all_col_sets else []
     else:
         markers_auto = sorted(set.union(*marker_sets)) if marker_sets else []
+        all_cols = sorted(set.union(*all_col_sets)) if all_col_sets else []
 
-    if not markers_auto:
+    options_pool = all_cols if show_all_cols else markers_auto
+    if not options_pool:
+        st.error("No numeric columns found in the uploaded CSVs.")
+        st.stop()
+    if not markers_auto and not show_all_cols:
         st.error("No marker columns detected with the current filters.")
         st.stop()
 
     st.subheader("Select marker columns")
     markers = st.multiselect(
-        "Auto-detected numeric columns (excluding *_otsu*, *_ratio*, *_local_* etc.)",
-        options=markers_auto,
-        default=markers_auto
+        "Marker columns"
+        + (" (all numeric)" if show_all_cols else " (auto-detected, excluding *_otsu*, *_ratio*, *_local_* etc.)"),
+        options=options_pool,
+        default=[m for m in markers_auto if m in options_pool],
     )
 
     if not markers:

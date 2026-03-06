@@ -48,6 +48,9 @@ def candidate_marker_columns(df: pd.DataFrame):
             cols.append(c)
     return cols
 
+def all_numeric_columns(df: pd.DataFrame):
+    return [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+
 
 def compute_snr_for_vector(
     x: np.ndarray,
@@ -535,12 +538,30 @@ if roi_review_images:
         st.image(rv["show"], caption=f"{review_roi} - segmentation_mask_show", use_container_width=True)
 
 marker_sets = [set(candidate_marker_columns(df)) for df in per_roi_tables.values()]
+all_col_sets = [set(all_numeric_columns(df)) for df in per_roi_tables.values()]
 markers_auto = sorted(set.intersection(*marker_sets)) if marker_sets else []
-if not markers_auto:
+all_cols = sorted(set.intersection(*all_col_sets)) if all_col_sets else []
+
+show_all_cols = st.checkbox(
+    "Show all numeric columns (override auto-exclusion filter)",
+    value=False,
+    help="When checked, all numeric columns from cell_data.csv are available, including those normally excluded (e.g. cell_id, x, y, size, *_otsu* …).",
+)
+
+options_pool = all_cols if show_all_cols else markers_auto
+if not options_pool:
+    st.error("No numeric columns found in cell_data.csv.")
+    st.stop()
+if not markers_auto and not show_all_cols:
     st.error("No marker columns detected after extraction.")
     st.stop()
 
-markers = st.multiselect("Select marker columns", options=markers_auto, default=markers_auto)
+markers = st.multiselect(
+    "Select marker columns"
+    + (" (all numeric)" if show_all_cols else " (auto-detected)"),
+    options=options_pool,
+    default=[m for m in markers_auto if m in options_pool],
+)
 if not markers:
     st.warning("No marker columns selected.")
     st.stop()
