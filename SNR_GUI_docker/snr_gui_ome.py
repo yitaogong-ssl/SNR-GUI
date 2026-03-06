@@ -372,11 +372,6 @@ with c11:
 
 min_cells = st.number_input("Min cells per ROI", min_value=1, max_value=1_000_000, value=200, step=10)
 log_scale = st.checkbox("Log-scale X axis", value=False)
-show_all_cols = st.checkbox(
-    "Show all numeric columns for SNR (override auto-exclusion filter)",
-    value=False,
-    help="When checked, all numeric columns from cell_data.csv are available for SNR, including those normally excluded (e.g. cell_id, x, y, size, *_otsu* …).",
-)
 
 run_clicked = st.button("Run segmentation.py + SNR")
 cache_key = "snr_ome_cached_results"
@@ -546,6 +541,12 @@ marker_sets = [set(candidate_marker_columns(df)) for df in per_roi_tables.values
 all_col_sets = [set(all_numeric_columns(df)) for df in per_roi_tables.values()]
 markers_auto = sorted(set.intersection(*marker_sets)) if marker_sets else []
 all_cols = sorted(set.intersection(*all_col_sets)) if all_col_sets else []
+
+show_all_cols = st.checkbox(
+    "Show all numeric columns (override auto-exclusion filter)",
+    value=False,
+    help="When checked, all numeric columns from cell_data.csv are available, including those normally excluded (e.g. cell_id, x, y, size, *_otsu* …).",
+)
 
 options_pool = all_cols if show_all_cols else markers_auto
 if not options_pool:
